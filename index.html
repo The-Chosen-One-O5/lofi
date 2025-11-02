@@ -160,6 +160,33 @@
             width: 100%;
         }
 
+        .refresh-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            padding: 10px 15px;
+            font-size: 1.5rem;
+            font-weight: 700;
+            background-color: #4d52b8;
+            color: #c5c7f5;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: inherit;
+            z-index: 1000;
+        }
+
+        .refresh-btn:hover {
+            opacity: 0.8;
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(77, 82, 184, 0.4);
+        }
+
+        .refresh-btn:active {
+            transform: scale(0.95);
+        }
+
         @media (max-width: 600px) {
             h1 {
                 font-size: 2.5rem;
@@ -182,6 +209,7 @@
     </style>
 </head>
 <body>
+    <button class="refresh-btn" onclick="location.reload()">↺</button>
     <div id="screen1" class="screen active">
         <h1>ENTER SONG</h1>
         <input type="text" id="urlInput" placeholder="Enter URL">
