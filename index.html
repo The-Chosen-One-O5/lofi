@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Song Player</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@700&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Fredoka', 'Nunito', sans-serif;
+            background-color: #121215;
+            color: #c5c7f5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .screen {
+            width: 100%;
+            max-width: 600px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        h1 {
+            font-size: 4rem;
+            font-weight: 800;
+            text-align: center;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .playing-text {
+            font-size: 3rem;
+            font-weight: 700;
+            text-align: center;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 20px;
+            font-size: 1.2rem;
+            background-color: #1e1e24;
+            color: #c5c7f5;
+            border: 2px solid #4d52b8;
+            border-radius: 10px;
+            outline: none;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        input[type="text"]:focus {
+            border-color: #c5c7f5;
+            box-shadow: 0 0 10px rgba(77, 82, 184, 0.5);
+        }
+
+        input[type="text"]::placeholder {
+            color: #7a7c9d;
+        }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 100%;
+        }
+
+        button {
+            padding: 20px 40px;
+            font-size: 1.3rem;
+            font-weight: 700;
+            background-color: #4d52b8;
+            color: #c5c7f5;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: inherit;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        button:hover {
+            background-color: #5d62d8;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(77, 82, 184, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .queue-list {
+            width: 100%;
+            max-height: 200px;
+            overflow-y: auto;
+            background-color: #1e1e24;
+            border: 2px solid #4d52b8;
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .queue-item {
+            color: #9a9cc5;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            word-break: break-all;
+        }
+
+        .queue-count {
+            color: #c5c7f5;
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        #player {
+            position: absolute;
+            left: -9999px;
+            width: 1px;
+            height: 1px;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            width: 100%;
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 2.5rem;
+            }
+
+            .playing-text {
+                font-size: 2rem;
+            }
+
+            button {
+                font-size: 1.1rem;
+                padding: 15px 30px;
+            }
+
+            input[type="text"] {
+                font-size: 1rem;
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="screen1" class="screen active">
+        <h1>ENTER SONG</h1>
+        <input type="text" id="urlInput" placeholder="Enter URL">
+        <div id="queueDisplay" class="queue-list hidden">
+            <div class="queue-count">Queue: <span id="queueCount">0</span> URL(s)</div>
+            <div id="queueItems"></div>
+        </div>
+        <div class="button-group">
+            <button id="addUrlBtn">Enter another url</button>
+            <button id="beginBtn">Begin</button>
+            <button id="removeUrlBtn" class="hidden">Remove url</button>
+        </div>
+    </div>
+
+    <div id="screen2" class="screen">
+        <div class="playing-text">Playing music...</div>
+        <div class="controls-grid">
+            <button id="playPauseBtn">Pause</button>
+            <button id="replayBtn">Replay</button>
+            <button id="nextBtn">Next</button>
+            <button id="loopBtn">Loop: OFF</button>
+        </div>
+    </div>
+
+    <div id="player"></div>
+
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script>
+        const urlQueue = [];
+        let currentVideoIndex = 0;
+        let player = null;
+        let isLooping = false;
+        let isPlaying = false;
+        let isPlayerReady = false;
+
+        const screen1 = document.getElementById('screen1');
+        const screen2 = document.getElementById('screen2');
+        const urlInput = document.getElementById('urlInput');
+        const addUrlBtn = document.getElementById('addUrlBtn');
+        const beginBtn = document.getElementById('beginBtn');
+        const removeUrlBtn = document.getElementById('removeUrlBtn');
+        const queueDisplay = document.getElementById('queueDisplay');
+        const queueCount = document.getElementById('queueCount');
+        const queueItems = document.getElementById('queueItems');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const replayBtn = document.getElementById('replayBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const loopBtn = document.getElementById('loopBtn');
+
+        function extractVideoId(url) {
+            const patterns = [
+                /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/,
+                /youtube\.com\/embed\/([^&\n?#]+)/,
+                /youtube\.com\/v\/([^&\n?#]+)/
+            ];
+            
+            for (const pattern of patterns) {
+                const match = url.match(pattern);
+                if (match) return match[1];
+            }
+            return null;
+        }
+
+        function extractPlaylistId(url) {
+            const match = url.match(/[?&]list=([^&\n?#]+)/);
+            return match ? match[1] : null;
+        }
+
+        function updateQueueDisplay() {
+            queueCount.textContent = urlQueue.length;
+            queueItems.innerHTML = urlQueue.map((url, index) => 
+                `<div class="queue-item">${index + 1}. ${url.substring(0, 50)}${url.length > 50 ? '...' : ''}</div>`
+            ).join('');
+            
+            if (urlQueue.length > 0) {
+                queueDisplay.classList.remove('hidden');
+            } else {
+                queueDisplay.classList.add('hidden');
+            }
+
+            if (urlQueue.length > 1) {
+                removeUrlBtn.classList.remove('hidden');
+            } else {
+                removeUrlBtn.classList.add('hidden');
+            }
+        }
+
+        addUrlBtn.addEventListener('click', () => {
+            const url = urlInput.value.trim();
+            if (url) {
+                urlQueue.push(url);
+                urlInput.value = '';
+                updateQueueDisplay();
+            }
+        });
+
+        removeUrlBtn.addEventListener('click', () => {
+            if (urlQueue.length > 1) {
+                urlQueue.pop();
+                updateQueueDisplay();
+            }
+        });
+
+        beginBtn.addEventListener('click', () => {
+            const url = urlInput.value.trim();
+            if (url && !urlQueue.includes(url)) {
+                urlQueue.push(url);
+            }
+            
+            if (urlQueue.length > 0) {
+                screen1.classList.remove('active');
+                screen2.classList.add('active');
+                currentVideoIndex = 0;
+                initializePlayer();
+            }
+        });
+
+        urlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const url = urlInput.value.trim();
+                if (url) {
+                    urlQueue.push(url);
+                    urlInput.value = '';
+                    updateQueueDisplay();
+                }
+            }
+        });
+
+        function onYouTubeIframeAPIReady() {
+            console.log('YouTube API Ready');
+        }
+
+        function initializePlayer() {
+            if (urlQueue.length === 0) return;
+
+            const currentUrl = urlQueue[currentVideoIndex];
+            const videoId = extractVideoId(currentUrl);
+            const playlistId = extractPlaylistId(currentUrl);
+
+            const playerVars = {
+                autoplay: 1,
+                controls: 0,
+                modestbranding: 1,
+                rel: 0
+            };
+
+            if (playlistId) {
+                playerVars.list = playlistId;
+            }
+
+            if (player) {
+                if (playlistId) {
+                    player.loadPlaylist({
+                        list: playlistId,
+                        listType: 'playlist'
+                    });
+                } else if (videoId) {
+                    player.loadVideoById(videoId);
+                }
+            } else {
+                const config = {
+                    height: '1',
+                    width: '1',
+                    playerVars: playerVars,
+                    events: {
+                        'onReady': onPlayerReady,
+                        'onStateChange': onPlayerStateChange
+                    }
+                };
+
+                if (videoId) {
+                    config.videoId = videoId;
+                }
+
+                player = new YT.Player('player', config);
+            }
+        }
+
+        function onPlayerReady(event) {
+            isPlayerReady = true;
+            event.target.playVideo();
+            isPlaying = true;
+            playPauseBtn.textContent = 'Pause';
+        }
+
+        function onPlayerStateChange(event) {
+            if (event.data === YT.PlayerState.ENDED) {
+                if (isLooping) {
+                    player.seekTo(0);
+                    player.playVideo();
+                } else {
+                    playNext();
+                }
+            } else if (event.data === YT.PlayerState.PLAYING) {
+                isPlaying = true;
+                playPauseBtn.textContent = 'Pause';
+            } else if (event.data === YT.PlayerState.PAUSED) {
+                isPlaying = false;
+                playPauseBtn.textContent = 'Play';
+            }
+        }
+
+        playPauseBtn.addEventListener('click', () => {
+            if (!player || !isPlayerReady) return;
+
+            if (isPlaying) {
+                player.pauseVideo();
+            } else {
+                player.playVideo();
+            }
+        });
+
+        replayBtn.addEventListener('click', () => {
+            if (!player || !isPlayerReady) return;
+            player.seekTo(0);
+            player.playVideo();
+        });
+
+        nextBtn.addEventListener('click', () => {
+            playNext();
+        });
+
+        loopBtn.addEventListener('click', () => {
+            isLooping = !isLooping;
+            loopBtn.textContent = isLooping ? 'Loop: ON' : 'Loop: OFF';
+        });
+
+        function playNext() {
+            if (urlQueue.length === 0) return;
+
+            currentVideoIndex = (currentVideoIndex + 1) % urlQueue.length;
+            const nextUrl = urlQueue[currentVideoIndex];
+            const videoId = extractVideoId(nextUrl);
+            const playlistId = extractPlaylistId(nextUrl);
+
+            if (player && isPlayerReady) {
+                if (playlistId) {
+                    player.loadPlaylist({
+                        list: playlistId,
+                        listType: 'playlist'
+                    });
+                } else if (videoId) {
+                    player.loadVideoById(videoId);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
