@@ -6,6 +6,8 @@ A minimal, elegant YouTube song player with queue functionality.
 
 - **URL Entry Screen**: Add multiple YouTube video or playlist URLs to a queue
 - **Player Screen**: Control playback with play/pause, replay, next, and loop buttons
+- **Auto Queue Loop**: Queue automatically restarts from the first song when the last song ends, creating a never-ending playlist experience
+- **Single-Song Loop**: Loop button allows repeating the current song indefinitely
 - **Hidden Player**: Videos play in the background (audio only)
 - **Clean Design**: Minimalist interface with a dark theme and fat fun fonts
 

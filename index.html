@@ -238,12 +238,18 @@
 
     <script src="https://www.youtube.com/iframe_api"></script>
     <script>
+        // YouTube Song Player
+        // Features two types of looping:
+        // 1. Single-song loop (Loop button): Replays the current song when enabled
+        // 2. Auto queue loop: When the last song ends, automatically restarts from the first song
+        //    This creates a never-ending playlist experience
+        
         const YOUTUBE_API_KEY = 'AIzaSyDJIIcaBtK7Auz_GLLKLiUYRKJCkGrSUYI';
         
         const urlQueue = [];
         let currentVideoIndex = 0;
         let player = null;
-        let isLooping = false;
+        let isLooping = false; // Controls single-song loop
         let isPlaying = false;
         let isPlayerReady = false;
 
@@ -473,10 +479,12 @@
 
         function onPlayerStateChange(event) {
             if (event.data === YT.PlayerState.ENDED) {
+                // Single-song loop: if Loop button is ON, replay current song
                 if (isLooping) {
                     player.seekTo(0);
                     player.playVideo();
                 } else {
+                    // Auto queue loop: move to next song (or restart from beginning)
                     playNext();
                 }
             } else if (event.data === YT.PlayerState.PLAYING) {
@@ -516,7 +524,14 @@
         function playNext() {
             if (urlQueue.length === 0) return;
 
-            currentVideoIndex = (currentVideoIndex + 1) % urlQueue.length;
+            // Move to next song in queue
+            currentVideoIndex++;
+            
+            // Auto queue loop: if we've reached the end, restart from beginning
+            if (currentVideoIndex >= urlQueue.length) {
+                currentVideoIndex = 0;
+            }
+            
             const nextUrl = urlQueue[currentVideoIndex];
             const videoId = extractVideoId(nextUrl);
 
