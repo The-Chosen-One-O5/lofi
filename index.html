@@ -210,6 +210,8 @@
 
     <script src="https://www.youtube.com/iframe_api"></script>
     <script>
+        const YOUTUBE_API_KEY = 'AIzaSyDJIIcaBtK7Auz_GLLKLiUYRKJCkGrSUYI';
+        
         const urlQueue = [];
         let currentVideoIndex = 0;
         let player = null;
@@ -250,6 +252,63 @@
             return match ? match[1] : null;
         }
 
+        function isPlaylistUrl(url) {
+            return url.includes('list=');
+        }
+
+        async function fetchPlaylistVideos(playlistId) {
+            const videoIds = [];
+            let pageToken = '';
+            
+            try {
+                do {
+                    const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${playlistId}&maxResults=50&key=${YOUTUBE_API_KEY}${pageToken ? '&pageToken=' + pageToken : ''}`;
+                    
+                    const response = await fetch(url);
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.error?.message || `API request failed with status ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    if (data.items) {
+                        data.items.forEach(item => {
+                            const videoId = item.snippet?.resourceId?.videoId;
+                            if (videoId) {
+                                videoIds.push(videoId);
+                            }
+                        });
+                    }
+                    
+                    pageToken = data.nextPageToken || '';
+                } while (pageToken);
+                
+                return videoIds;
+            } catch (error) {
+                console.error('Error fetching playlist:', error);
+                throw error;
+            }
+        }
+
+        async function processUrl(url) {
+            if (isPlaylistUrl(url)) {
+                const playlistId = extractPlaylistId(url);
+                if (playlistId) {
+                    try {
+                        const videoIds = await fetchPlaylistVideos(playlistId);
+                        const videoUrls = videoIds.map(id => `https://www.youtube.com/watch?v=${id}`);
+                        return videoUrls;
+                    } catch (error) {
+                        alert(`Failed to load playlist: ${error.message}\n\nPlease check:\n- The playlist URL is valid\n- The playlist is public\n- YouTube API quota is available`);
+                        return [];
+                    }
+                }
+            }
+            return [url];
+        }
+
         function updateQueueDisplay() {
             queueCount.textContent = urlQueue.length;
             queueItems.innerHTML = urlQueue.map((url, index) => 
@@ -269,12 +328,20 @@
             }
         }
 
-        addUrlBtn.addEventListener('click', () => {
+        addUrlBtn.addEventListener('click', async () => {
             const url = urlInput.value.trim();
             if (url) {
-                urlQueue.push(url);
+                addUrlBtn.disabled = true;
+                addUrlBtn.textContent = 'Loading...';
+                
+                const urls = await processUrl(url);
+                urls.forEach(u => urlQueue.push(u));
+                
                 urlInput.value = '';
                 updateQueueDisplay();
+                
+                addUrlBtn.disabled = false;
+                addUrlBtn.textContent = 'Enter another url';
             }
         });
 
@@ -285,10 +352,21 @@
             }
         });
 
-        beginBtn.addEventListener('click', () => {
+        beginBtn.addEventListener('click', async () => {
             const url = urlInput.value.trim();
-            if (url && !urlQueue.includes(url)) {
-                urlQueue.push(url);
+            if (url) {
+                beginBtn.disabled = true;
+                beginBtn.textContent = 'Loading...';
+                
+                const urls = await processUrl(url);
+                urls.forEach(u => {
+                    if (!urlQueue.includes(u)) {
+                        urlQueue.push(u);
+                    }
+                });
+                
+                beginBtn.disabled = false;
+                beginBtn.textContent = 'Begin';
             }
             
             if (urlQueue.length > 0) {
@@ -299,13 +377,21 @@
             }
         });
 
-        urlInput.addEventListener('keypress', (e) => {
+        urlInput.addEventListener('keypress', async (e) => {
             if (e.key === 'Enter') {
                 const url = urlInput.value.trim();
                 if (url) {
-                    urlQueue.push(url);
+                    addUrlBtn.disabled = true;
+                    addUrlBtn.textContent = 'Loading...';
+                    
+                    const urls = await processUrl(url);
+                    urls.forEach(u => urlQueue.push(u));
+                    
                     urlInput.value = '';
                     updateQueueDisplay();
+                    
+                    addUrlBtn.disabled = false;
+                    addUrlBtn.textContent = 'Enter another url';
                 }
             }
         });
@@ -319,7 +405,6 @@
 
             const currentUrl = urlQueue[currentVideoIndex];
             const videoId = extractVideoId(currentUrl);
-            const playlistId = extractPlaylistId(currentUrl);
 
             const playerVars = {
                 autoplay: 1,
@@ -328,17 +413,8 @@
                 rel: 0
             };
 
-            if (playlistId) {
-                playerVars.list = playlistId;
-            }
-
             if (player) {
-                if (playlistId) {
-                    player.loadPlaylist({
-                        list: playlistId,
-                        listType: 'playlist'
-                    });
-                } else if (videoId) {
+                if (videoId) {
                     player.loadVideoById(videoId);
                 }
             } else {
@@ -415,15 +491,9 @@
             currentVideoIndex = (currentVideoIndex + 1) % urlQueue.length;
             const nextUrl = urlQueue[currentVideoIndex];
             const videoId = extractVideoId(nextUrl);
-            const playlistId = extractPlaylistId(nextUrl);
 
             if (player && isPlayerReady) {
-                if (playlistId) {
-                    player.loadPlaylist({
-                        list: playlistId,
-                        listType: 'playlist'
-                    });
-                } else if (videoId) {
+                if (videoId) {
                     player.loadVideoById(videoId);
                 }
             }
