@@ -153,11 +153,70 @@
             height: 1px;
         }
 
+        .visualizer-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .image-circle {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background-image: url('lofifun.jpg');
+            background-size: cover;
+            background-position: center;
+            position: relative;
+            z-index: 2;
+            animation: vibe 2s ease-in-out infinite;
+            box-shadow: 0 0 30px rgba(77, 82, 184, 0.5);
+            transition: transform 0.1s ease-out;
+        }
+
+        @keyframes vibe {
+            0%, 100% { 
+                transform: scale(1);
+                box-shadow: 0 0 30px rgba(77, 82, 184, 0.5);
+            }
+            50% { 
+                transform: scale(1.1);
+                box-shadow: 0 0 50px rgba(77, 82, 184, 0.8);
+            }
+        }
+
+        .audio-wave {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .wave-bar {
+            position: absolute;
+            bottom: 50%;
+            left: 50%;
+            width: 3px;
+            background: linear-gradient(to top, #4d52b8, #c5c7f5);
+            transform-origin: bottom center;
+            border-radius: 2px;
+            animation: wave 1.5s ease-in-out infinite;
+        }
+
+        @keyframes wave {
+            0%, 100% { height: 10px; opacity: 0.3; }
+            50% { height: 30px; opacity: 1; }
+        }
+
         .controls-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 15px;
             width: 100%;
+            margin-top: 20px;
         }
 
         .refresh-btn {
@@ -205,6 +264,21 @@
                 font-size: 1rem;
                 padding: 15px;
             }
+
+            .visualizer-container {
+                width: 250px;
+                height: 250px;
+            }
+
+            .image-circle {
+                width: 160px;
+                height: 160px;
+            }
+
+            #audioCanvas {
+                width: 250px;
+                height: 250px;
+            }
         }
     </style>
 </head>
@@ -226,6 +300,10 @@
 
     <div id="screen2" class="screen">
         <div class="playing-text">Playing music...</div>
+        <div class="visualizer-container">
+            <div class="image-circle" id="imageCircle"></div>
+            <canvas class="audio-wave" id="audioCanvas"></canvas>
+        </div>
         <div class="controls-grid">
             <button id="playPauseBtn">Pause</button>
             <button id="replayBtn">Replay</button>
@@ -252,6 +330,7 @@
         let isLooping = false; // Controls single-song loop
         let isPlaying = false;
         let isPlayerReady = false;
+        let visualizerAnimationId = null;
 
         const screen1 = document.getElementById('screen1');
         const screen2 = document.getElementById('screen2');
@@ -475,6 +554,113 @@
             event.target.playVideo();
             isPlaying = true;
             playPauseBtn.textContent = 'Pause';
+            startVisualizer();
+        }
+
+        function startVisualizer() {
+            const canvas = document.getElementById('audioCanvas');
+            const ctx = canvas.getContext('2d');
+            const imageCircle = document.getElementById('imageCircle');
+            
+            // Set canvas size
+            canvas.width = 300;
+            canvas.height = 300;
+            
+            let time = 0;
+            
+            function animate() {
+                if (!isPlaying) {
+                    // Draw static wave when paused
+                    drawStaticWave(ctx, canvas.width, canvas.height);
+                } else {
+                    // Draw animated wave when playing
+                    time += 0.05;
+                    drawAudioWave(ctx, canvas.width, canvas.height, time);
+                    animateImageCircle(imageCircle, time);
+                }
+                
+                visualizerAnimationId = requestAnimationFrame(animate);
+            }
+            
+            animate();
+        }
+
+        function stopVisualizer() {
+            if (visualizerAnimationId) {
+                cancelAnimationFrame(visualizerAnimationId);
+                visualizerAnimationId = null;
+            }
+        }
+
+        function drawStaticWave(ctx, width, height) {
+            ctx.clearRect(0, 0, width, height);
+            ctx.strokeStyle = '#4d52b8';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            for (let x = 0; x < width; x++) {
+                const angle = (x / width) * Math.PI * 2;
+                const y = height / 2 + Math.sin(angle) * 10;
+                
+                if (x === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            
+            ctx.stroke();
+        }
+
+        function drawAudioWave(ctx, width, height, time) {
+            ctx.clearRect(0, 0, width, height);
+            
+            // Draw multiple waves for a richer effect
+            for (let waveType = 0; waveType < 3; waveType++) {
+                const waveColor = waveType === 0 ? '#4d52b8' : 
+                                waveType === 1 ? '#c5c7f5' : '#7a7c9d';
+                const waveOffset = waveType * 0.5;
+                
+                ctx.strokeStyle = waveColor;
+                ctx.lineWidth = 2 + waveType;
+                ctx.globalAlpha = 0.6 - waveType * 0.1;
+                ctx.beginPath();
+                
+                for (let x = 0; x < width; x++) {
+                    const angle = (x / width) * Math.PI * 8 + time * (1 + waveType * 0.3) + waveOffset;
+                    const amplitude = 20 + Math.sin(time * 2 + waveType) * 10;
+                    const y = height / 2 + Math.sin(angle) * amplitude;
+                    
+                    if (x === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                
+                ctx.stroke();
+            }
+            
+            ctx.globalAlpha = 1;
+        }
+
+        function animateImageCircle(imageCircle, time) {
+            // Create a breathing/vibrating effect
+            const baseScale = 1;
+            const breathingScale = 1 + Math.sin(time * 1.5) * 0.05;
+            const vibrateScale = 1 + Math.sin(time * 20) * 0.02;
+            const finalScale = baseScale * breathingScale * vibrateScale;
+            
+            imageCircle.style.transform = `scale(${finalScale})`;
+            
+            // Dynamic shadow effect
+            const shadowIntensity = 30 + Math.sin(time * 3) * 20;
+            const shadowColor = `rgba(77, 82, 184, ${0.3 + Math.sin(time * 2) * 0.3})`;
+            imageCircle.style.boxShadow = `0 0 ${shadowIntensity}px ${shadowColor}`;
+            
+            // Subtle rotation for more dynamic feel
+            const rotation = Math.sin(time * 0.5) * 2;
+            imageCircle.style.transform += ` rotate(${rotation}deg)`;
         }
 
         function onPlayerStateChange(event) {
@@ -510,6 +696,10 @@
             if (!player || !isPlayerReady) return;
             player.seekTo(0);
             player.playVideo();
+            // Reset visualizer animation time
+            if (window.visualizerTime !== undefined) {
+                window.visualizerTime = 0;
+            }
         });
 
         nextBtn.addEventListener('click', () => {
